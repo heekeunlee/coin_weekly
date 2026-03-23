@@ -1,73 +1,34 @@
-# React + TypeScript + Vite
+# Coin Weekly 🪙
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A premium crypto investment dashboard and simulator based on the **Weekly DCA (Dollar Cost Averaging) Strategy**.
 
-Currently, two official plugins are available:
+## 🚀 Deployment
+Live App: [https://heekeunlee.github.io/coin_weekly/](https://heekeunlee.github.io/coin_weekly/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📊 Strategy Overview
+- **Frequency**: Every 1-2 weeks (Monday/Wednesday Morning).
+- **Base Amount**: ₩1,000,000 per week.
+- **Allocation**:
+  - **BTC**: 60%
+  - **ETH**: 30%
+  - **XRP**: 10%
 
-## React Compiler
+## 🌓 Advanced Rules
+- **-3% Dip**: 1.5x Buy (₩1.5M)
+- **-5% Dip**: 2x Buy (₩2.0M)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠 Tech Stack
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS (Premium Glassmorphism Design)
+- Recharts (Interactive Data Visualization)
+- Lucide React (Sleek Icons)
+- Framer Motion (Smooth Animations)
 
-## Expanding the ESLint configuration
+## 📈 Projected Returns
+- **Conservative**: +30~35%
+- **Neutral**: +70~90%
+- **Bull Case**: +120~160%
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+Created by Antigravity AI.
