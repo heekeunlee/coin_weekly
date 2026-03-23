@@ -2,14 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css');
+}
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #020617;
+  color-scheme: light;
+  color: #1a1a1a;
+  background-color: #f2f4f6;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,12 +28,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  margin: 0;
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
-  background-attachment: fixed;
+  background-color: #f2f4f6;
 }
 
 #root {
@@ -39,21 +39,58 @@ body {
   box-sizing: border-box;
 }
 
-.glass {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.toss-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  transition: transform 0.2s ease;
 }
 
-.glass-hover:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
+.toss-card:hover {
+  transform: translateY(-2px);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #60a5fa 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.toss-blue {
+  color: #3182f6;
+}
+
+.toss-bg-blue {
+  background-color: #3182f6;
+}
+
+.toss-red {
+  color: #f04452;
+}
+
+.toss-bg-red {
+  background-color: #f04452;
+}
+
+.toss-gray {
+  color: #8b95a1;
+}
+
+.toss-bg-gray {
+  background-color: #f9fafb;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #e5e8eb;
+  border-radius: 5px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #3182f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 4px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }

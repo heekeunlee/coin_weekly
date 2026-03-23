@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  TrendingUp, 
-  Wallet, 
   BarChart3, 
   RefreshCcw, 
-  Calendar,
-  AlertCircle,
-  Info
+  Info,
+  ChevronRight,
+  ArrowUpRight,
+  ArrowDownRight
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -14,10 +13,6 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  Legend, 
-  PieChart, 
-  Pie, 
-  Cell,
   AreaChart,
   Area
 } from 'recharts';
@@ -33,28 +28,38 @@ function cn(...inputs: ClassValue[]) {
 // --- Icons & UI Components ---
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("glass rounded-3xl p-6 shadow-xl", className)}>
+  <div className={cn("toss-card p-6", className)}>
     {children}
   </div>
 );
 
-const Badge = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider", className)}>
+const Badge = ({ children, className, variant = 'blue' }: { children: React.ReactNode, className?: string, variant?: 'blue' | 'red' | 'gray' }) => (
+  <span className={cn(
+    "px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tighter",
+    variant === 'blue' && "bg-[#ebf4ff] text-[#3182f6]",
+    variant === 'red' && "bg-[#fff0f0] text-[#f04452]",
+    variant === 'gray' && "bg-[#f2f4f6] text-[#8b95a1]",
+    className
+  )}>
     {children}
   </span>
 );
 
-// --- Simulation Hook ---
+// --- Fixed Holding Data from Screenshot ---
+const HOLDINGS = {
+  BTC: { amount: 0.00583222, avgPrice: 102162589 },
+  ETH: { amount: 0.1, avgPrice: 3094000 },
+  XRP: { amount: 50, avgPrice: 2084 }
+};
 
-const useSimulation = (weeklyAmount: number, weeks: number, btcAlloc: number, ethAlloc: number, xrpAlloc: number) => {
+// --- Simulation Hook ---
+const useSimulation = (weeklyAmount: number, weeks: number) => {
   return useMemo(() => {
     const totalInvested = weeklyAmount * weeks;
-    
-    // Scenarios from the strategy md
     const scenarios = [
-      { name: 'Conservative', multiplier: 1.325 }, // Avg of 30-35%
-      { name: 'Neutral', multiplier: 1.8 },      // Avg of 70-90%
-      { name: 'Bull Case', multiplier: 2.4 }     // Avg of 120-160%
+      { name: '보수적', multiplier: 1.325, color: '#8b95a1' },
+      { name: '중립적', multiplier: 1.8, color: '#3182f6' },
+      { name: '불장', multiplier: 2.4, color: '#f04452' }
     ];
 
     const data = Array.from({ length: weeks + 1 }, (_, i) => {
@@ -77,7 +82,7 @@ const useSimulation = (weeklyAmount: number, weeks: number, btcAlloc: number, et
         roi: Math.round((s.multiplier - 1) * 100)
       }))
     };
-  }, [weeklyAmount, weeks, btcAlloc, ethAlloc, xrpAlloc]);
+  }, [weeklyAmount, weeks]);
 };
 
 // --- Main App Component ---
@@ -88,122 +93,158 @@ const App: React.FC = () => {
     ETH: 0,
     XRP: 0
   });
-
   const [weeklyAmount, setWeeklyAmount] = useState(1000000);
-  const [weeks, setWeeks] = useState(52); // Default to 1 year
-  
-  const btcAlloc = 60;
-  const ethAlloc = 30;
-  const xrpAlloc = 10;
-
-  const { totalInvested, data, scenarios } = useSimulation(weeklyAmount, weeks, btcAlloc, ethAlloc, xrpAlloc);
+  const [weeks, setWeeks] = useState(52); 
 
   useEffect(() => {
     const fetchPrices = async () => {
       try {
         const response = await axios.get('https://api.coingecko.com/api/v3/simple/price', {
-          params: {
-            ids: 'bitcoin,ethereum,ripple',
-            vs_currencies: 'krw'
-          }
+          params: { ids: 'bitcoin,ethereum,ripple', vs_currencies: 'krw' }
         });
         setPrices({
           BTC: response.data.bitcoin.krw,
           ETH: response.data.ethereum.krw,
           XRP: response.data.ripple.krw
         });
-
       } catch (error) {
         console.error("Error fetching prices:", error);
-        // Fallback or handle error
       }
     };
-
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60000); // Update every minute
+    const interval = setInterval(fetchPrices, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const pieData = [
-    { name: 'BTC', value: btcAlloc, color: '#f7931a' },
-    { name: 'ETH', value: ethAlloc, color: '#627eea' },
-    { name: 'XRP', value: xrpAlloc, color: '#23292f' },
-  ];
+  const { totalInvested, data, scenarios } = useSimulation(weeklyAmount, weeks);
+
+  const portfolioStats = useMemo(() => {
+    const totalBuyPrice = (HOLDINGS.BTC.amount * HOLDINGS.BTC.avgPrice) + 
+                          (HOLDINGS.ETH.amount * HOLDINGS.ETH.avgPrice) + 
+                          (HOLDINGS.XRP.amount * HOLDINGS.XRP.avgPrice);
+    
+    const totalCurrentVal = (HOLDINGS.BTC.amount * (prices.BTC || 0)) + 
+                            (HOLDINGS.ETH.amount * (prices.ETH || 0)) + 
+                            (HOLDINGS.XRP.amount * (prices.XRP || 0));
+    
+    const totalProfit = totalCurrentVal - totalBuyPrice;
+    const totalRoi = (totalProfit / totalBuyPrice) * 100;
+
+    return { totalBuyPrice, totalCurrentVal, totalProfit, totalRoi };
+  }, [prices]);
 
   const formatKRW = (val: number) => {
     return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val);
   };
 
+
+
   return (
-    <div className="min-h-screen w-full flex flex-col items-center py-10 px-4 md:px-10 text-slate-100">
+    <div className="min-h-screen w-full flex flex-col items-center py-12 px-4 md:px-0 max-w-[640px] mx-auto text-[#1a1a1a]">
+      {/* Header */}
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-6xl mb-12 flex flex-col md:flex-row justify-between items-center gap-6"
+        className="w-full mb-8 flex flex-col gap-1 px-4"
       >
-        <div className="flex flex-col">
-          <h1 className="text-5xl font-black tracking-tight gradient-text mb-2 tracking-tighter">
-            COIN WEEKLY
-          </h1>
-          <p className="text-slate-400 font-medium flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-purple-400" />
-            Institutional DCA Strategy Dashboard
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-4">
-            {Object.entries(prices).map(([symbol, price]) => (
-              <Card key={symbol} className="px-4 py-2 rounded-2xl flex items-center gap-3">
-                <span className="font-bold text-sm text-slate-300">{symbol}</span>
-                <span className="font-mono text-xs">{formatKRW(price)}</span>
-              </Card>
-            ))}
-          </div>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-black tracking-tight text-[#1a1a1a]">투자 내역</h1>
           <button 
             onClick={() => window.location.reload()}
-            className="p-3 rounded-full glass glass-hover transition-all"
+            className="p-2.5 rounded-full bg-white shadow-sm transition-all active:scale-95"
           >
-            <RefreshCcw className="w-5 h-5" />
+            <RefreshCcw className="w-5 h-5 toss-gray" />
           </button>
+        </div>
+        <div className="flex gap-4 border-b border-[#e5e8eb] pt-4">
+          <button className="pb-3 border-b-2 border-[#1a1a1a] font-bold text-sm">보유자산</button>
+          <button className="pb-3 text-sm toss-gray font-medium">투자손익</button>
+          <button className="pb-3 text-sm toss-gray font-medium">거래내역</button>
         </div>
       </motion.header>
 
-      <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Input & Allocation */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="flex flex-col gap-6">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-indigo-400" />
-                Investment Params
+      <div className="w-full flex flex-col gap-4 pb-20">
+        {/* Today's Returns (Screenshot Mockup Visualization) */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="flex flex-col gap-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">오늘의 자산 현황</h3>
+              <Badge variant={portfolioStats.totalProfit >= 0 ? 'red' : 'blue'}>
+                {portfolioStats.totalProfit >= 0 ? '+' : ''}{portfolioStats.totalRoi.toFixed(2)}%
+              </Badge>
+            </div>
+            
+            <div className="flex flex-col gap-1 px-1">
+              <span className="text-3xl font-black">{formatKRW(portfolioStats.totalCurrentVal)}</span>
+              <div className={cn("text-base font-bold flex items-center gap-1", portfolioStats.totalProfit >= 0 ? "toss-red" : "toss-blue")}>
+                {portfolioStats.totalProfit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                {formatKRW(portfolioStats.totalProfit)}
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-[#f2f4f6]">
+              {Object.entries(HOLDINGS).map(([symbol, data]) => {
+                const currentPrice = prices[symbol] || 0;
+                const profit = (currentPrice - data.avgPrice) * data.amount;
+                const roi = ((currentPrice - data.avgPrice) / data.avgPrice) * 100;
+                
+                return (
+                  <div key={symbol} className="flex justify-between items-center">
+                    <div className="flex gap-3 items-center">
+                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm", 
+                        symbol === 'BTC' ? "bg-[#fff9eb] text-[#FF9500]" : 
+                        symbol === 'ETH' ? "bg-[#ebf4ff] text-[#3182f6]" : "bg-[#f2f4f6] text-[#1a1a1a]"
+                      )}>
+                        {symbol}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">{symbol === 'BTC' ? '비트코인' : symbol === 'ETH' ? '이더리움' : '엑스알피(리플)'}</span>
+                        <span className="text-xs toss-gray">{data.amount} {symbol}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="font-bold text-sm">{formatKRW(data.amount * currentPrice)}</span>
+                      <span className={cn("text-xs font-bold", profit >= 0 ? "toss-red" : "toss-blue")}>
+                        {profit >= 0 ? '+' : ''}{roi.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Dynamic Simulator Section */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="flex flex-col gap-8">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 toss-blue" />
+                DCA 시뮬레이터
               </h3>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <label className="text-slate-400">Weekly Amount</label>
-                    <span className="font-bold text-indigo-400">{formatKRW(weeklyAmount)}</span>
+            </div>
+            
+            <div className="space-y-8">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm toss-gray font-bold">매주 투자할 금액</label>
+                    <span className="font-black text-lg toss-blue">{formatKRW(weeklyAmount)}</span>
                   </div>
                   <input 
                     type="range" 
                     min="100000" 
                     max="5000000" 
-                    step="50000"
+                    step="100000"
                     value={weeklyAmount}
                     onChange={(e) => setWeeklyAmount(Number(e.target.value))}
-                    className="w-full accent-indigo-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <label className="text-slate-400">Duration (Weeks)</label>
-                    <span className="font-bold text-purple-400">{weeks} Weeks</span>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm toss-gray font-bold">DCA 투자 기간</label>
+                    <span className="font-black text-lg toss-blue">{weeks}주</span>
                   </div>
                   <input 
                     type="range" 
@@ -212,184 +253,116 @@ const App: React.FC = () => {
                     step="4"
                     value={weeks}
                     onChange={(e) => setWeeks(Number(e.target.value))}
-                    className="w-full accent-purple-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
-              </div>
+            </div>
 
-              <div className="pt-4 border-t border-slate-700/50 flex flex-col gap-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-slate-400">Total Capital</span>
-                  <span className="font-bold text-xl">{formatKRW(totalInvested)}</span>
+            <div className="pt-6 border-t border-[#f2f4f6] flex justify-between items-center">
+                <span className="text-sm font-bold toss-gray">총 투자금액</span>
+                <span className="text-xl font-black">{formatKRW(totalInvested)}</span>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Charts & Scenario Results */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card className="h-[400px]">
+            <h3 className="text-lg font-bold mb-8">기대 수익 시뮬레이션</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data}>
+                  <defs>
+                    <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#e5e8eb" stopOpacity={0.5}/>
+                      <stop offset="95%" stopColor="#e5e8eb" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorNeutral" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3182f6" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#3182f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#f2f4f6" />
+                  <XAxis dataKey="week" hide={true} />
+                  <YAxis hide={true} domain={['auto', 'auto']} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    formatter={(val: any) => formatKRW(Number(val))}
+                    labelFormatter={(val) => `${val}주차`}
+                  />
+                  <Area type="monotone" dataKey="invested" stroke="#e5e8eb" fillOpacity={1} fill="url(#colorInvested)" name="원금" strokeWidth={2} />
+                  <Area type="monotone" dataKey="neutral" stroke="#3182f6" fillOpacity={1} fill="url(#colorNeutral)" name="중립적 기대치" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-2 items-center justify-center mt-4 cursor-default">
+              <div className="flex items-center gap-1.5 text-xs toss-gray"><div className="w-2.5 h-2.5 rounded-sm bg-[#e5e8eb]"/> 원금</div>
+              <div className="flex items-center gap-1.5 text-xs toss-gray ml-4"><div className="w-2.5 h-2.5 rounded-sm bg-[#3182f6]"/> 중립적 수익</div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Scenario List */}
+        <div className="flex flex-col gap-3">
+          {scenarios.map((s, idx) => (
+            <motion.div
+              key={s.name}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 + idx * 0.1 }}
+            >
+              <div className="toss-card p-5 bg-white flex justify-between items-center group cursor-pointer active:scale-95 transition-all">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold toss-gray">{s.name}</span>
+                    <Badge variant={s.name === '불장' ? 'red' : s.name === '중립적' ? 'blue' : 'gray'}>+{s.roi}%</Badge>
+                  </div>
+                  <span className="text-xl font-black">{formatKRW(s.finalValue)}</span>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-[#f2f4f6] flex items-center justify-center group-hover:bg-[#ebf4ff] group-hover:text-[#3182f6] transition-colors">
+                  <ChevronRight className="w-6 h-6" />
                 </div>
               </div>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="h-full">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-pink-400" />
-                Portfolio Allocation
-              </h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-around mt-4">
-                {pieData.map(item => (
-                  <div key={item.name} className="flex flex-col items-center">
-                    <span className="text-xs text-slate-400 uppercase font-bold">{item.name}</span>
-                    <span className="text-lg font-black" style={{ color: item.color }}>{item.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </motion.div>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Right Column: Charts & Scenarios */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="h-96">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-emerald-400" />
-                  Performance Simulation
-                </h3>
+        {/* Strategy Rules Section */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
+          <Card className="bg-[#f9fafb] shadow-none border-none">
+            <h4 className="text-base font-bold mb-4 flex items-center gap-2">
+              <Info className="w-5 h-5 toss-blue" />
+              투자 전략 가이드
+            </h4>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">1</div>
+                <p className="text-sm toss-gray leading-relaxed font-medium">
+                  <span className="text-[#1a1a1a] font-bold">월요일 오전 고정 매수</span><br/>
+                  매주 월요일 혹은 수요일 오전에 기계적으로 매수하세요.
+                </p>
               </div>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data}>
-                    <defs>
-                      <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#475569" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#475569" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorBull" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="week" stroke="#64748b" fontSize={12} tickFormatter={(val) => `W${val}`} />
-                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`} />
-                    <Tooltip 
-                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                      formatter={(val: any) => formatKRW(Number(val))}
-                    />
-                    <Legend />
-                    <Area type="monotone" dataKey="invested" stroke="#475569" fillOpacity={1} fill="url(#colorInvested)" name="Cumulative Capital" strokeWidth={2} />
-                    <Area type="monotone" dataKey="neutral" stroke="#8b5cf6" fillOpacity={1} fill="none" name="Neutral Forecast" strokeWidth={3} />
-                    <Area type="monotone" dataKey="bull" stroke="#10b981" fillOpacity={1} fill="url(#colorBull)" name="Bull Market" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">2</div>
+                <p className="text-sm toss-gray leading-relaxed font-medium">
+                  <span className="text-[#1a1a1a] font-bold">하락 시 추가 매수 (고급)</span><br/>
+                  -3% 하락 시 1.5배, -5% 하락 시 2배를 매수하여 평단가를 낮추세요.
+                </p>
               </div>
-            </Card>
-          </motion.div>
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">3</div>
+                <p className="text-sm toss-gray leading-relaxed font-medium">
+                  <span className="text-[#1a1a1a] font-bold">비트는 대장, 이더는 부대장</span><br/>
+                  BTC 60%, ETH 30%, XRP 10% 비중을 엄격히 준수하세요.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {scenarios.map((s, idx) => (
-              <motion.div
-                key={s.name}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.4 + idx * 0.1 }}
-              >
-                <Card className={cn(
-                  "p-5 relative overflow-hidden transition-all hover:scale-[1.02]",
-                  s.name === 'Bull Case' ? 'border-emerald-500/30' : 
-                  s.name === 'Neutral' ? 'border-purple-500/30' : 'border-slate-500/30'
-                )}>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{s.name}</span>
-                      <Badge className={cn(
-                        s.name === 'Bull Case' ? 'bg-emerald-500/20 text-emerald-400' : 
-                        s.name === 'Neutral' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-500/20 text-slate-400'
-                      )}>
-                        +{s.roi}% ROI
-                      </Badge>
-                    </div>
-                    <div className="text-2xl font-black mb-1">{formatKRW(s.finalValue)}</div>
-                    <div className="text-xs text-slate-500 flex items-center gap-1">
-                      Expected return after {weeks} weeks
-                    </div>
-                  </div>
-                  {/* Decorative faint icon */}
-                  <div className="absolute -bottom-4 -right-4 opacity-5 pointer-events-none">
-                    <TrendingUp className="w-24 h-24" />
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+        <div className="text-center py-10">
+          <p className="text-xs toss-gray">DCA 전략은 시장의 타이밍이 아닌, 시장에 머무는 시간을 사는 것입니다.</p>
         </div>
-      </main>
-
-      <motion.footer 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="w-full max-w-6xl mt-12 grid grid-cols-1 md:grid-cols-2 gap-10 items-center border-t border-slate-800 pt-10"
-      >
-        <div className="space-y-4">
-          <h4 className="text-xl font-bold flex items-center gap-2">
-            <Info className="w-5 h-5 text-blue-400" />
-            Strategy Notes
-          </h4>
-          <ul className="space-y-2 text-sm text-slate-400">
-            <li className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />
-              Base Rule: Buy once per week (Monday/Wednesday)
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />
-              Advanced Rule: Buy 1.5x on -3% dip, 2x on -5% dip.
-            </li>
-            <li className="flex items-start gap-2 text-indigo-300 font-medium">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              Focus: BTC led recovery, ETH followed by Alts.
-            </li>
-          </ul>
-        </div>
-
-        <Card className="border-indigo-500/20 bg-indigo-500/5">
-          <p className="text-sm font-medium italic text-indigo-300 mb-4">
-            "DCA is not about timing the market, it's about time in the market. Stick to the discipline."
-          </p>
-          <div className="flex gap-4">
-             <Badge className="bg-slate-800 text-slate-300">Minimum: 6 mo</Badge>
-             <Badge className="bg-slate-800 text-slate-300">Target: 12-24 mo</Badge>
-          </div>
-        </Card>
-      </motion.footer>
+      </div>
     </div>
   );
 };
