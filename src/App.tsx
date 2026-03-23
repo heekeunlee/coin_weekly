@@ -83,10 +83,10 @@ const useSimulation = (weeklyAmount: number, weeks: number, exchangeRate: number
       { name: '불장', multiplier: 2.4, color: '#f04452' }
     ];
 
-    // Adjust multiplier based on exchange rate (Quant Alpha)
-    // If rate > 1400, entry is expensive in KRW, so final KRW ROI is slightly penalized
-    // If rate < 1300, entry is cheap, potential for additional KRW ROI from exchange rate recovery
-    const rateFactor = exchangeRate > 1400 ? 0.95 : exchangeRate < 1300 ? 1.05 : 1.0;
+    // High rate > 1500: Extreme penalty for entry cost in KRW
+    // High rate > 1400: Moderate penalty
+    // Low rate < 1300: Advantage
+    const rateFactor = exchangeRate > 1500 ? 0.92 : exchangeRate > 1400 ? 0.96 : exchangeRate < 1300 ? 1.05 : 1.0;
 
     const scenarios = baseScenarios.map(s => ({
       ...s,
@@ -124,7 +124,7 @@ const App: React.FC = () => {
   const [prices, setPrices] = useState<{ [key: string]: number }>({ BTC: 0, ETH: 0, XRP: 0 });
   const [weeklyAmount, setWeeklyAmount] = useState(1000000);
   const [weeks, setWeeks] = useState(52);
-  const [exchangeRate, setExchangeRate] = useState(1380); // Default to current high levels
+  const [exchangeRate, setExchangeRate] = useState(1514); // Updated to historic high level
   const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
@@ -167,8 +167,9 @@ const App: React.FC = () => {
 
   // Quant Allocation Recommendation Logic
   const quantRecommendation = useMemo(() => {
-    if (exchangeRate > 1400) return { btc: 75, eth: 20, xrp: 5, label: "방어적 (달러 강세 대응)", color: "purple" };
-    if (exchangeRate < 1300) return { btc: 50, eth: 35, xrp: 15, label: "공격적 (원화 강세 대응)", color: "red" };
+    if (exchangeRate > 1500) return { btc: 80, eth: 15, xrp: 5, label: "초고환율 대응 (BTC 집중)", color: "purple" };
+    if (exchangeRate > 1400) return { btc: 70, eth: 25, xrp: 5, label: "방어적 (BTC 위주 매수)", color: "purple" };
+    if (exchangeRate < 1300) return { btc: 50, eth: 35, xrp: 15, label: "공격적 (알트 비중 확대)", color: "red" };
     return { btc: 60, eth: 30, xrp: 10, label: "중립적 (표준 전략)", color: "blue" };
   }, [exchangeRate]);
 
@@ -275,15 +276,43 @@ const App: React.FC = () => {
                 </div>
                 <input 
                   type="range" 
-                  min="1200" 
-                  max="1500" 
-                  step="10"
+                  min="1100" 
+                  max="1700" 
+                  step="5"
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(Number(e.target.value))}
                 />
                 <div className="flex justify-between text-[10px] toss-gray font-bold pt-1">
-                  <span>저환율 (공격)</span>
-                  <span>고환율 (방어)</span>
+                  <span>저환율 (적극 매수)</span>
+                  <span>초고환율 (극도로 방어)</span>
+                </div>
+              </div>
+
+              {/* BUY GUIDE (NEW) */}
+              <div className="bg-[#3182f6] p-6 rounded-2xl shadow-lg shadow-blue-500/10 text-white space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <Zap className="w-4 h-4" /> 이번 주 매수 가이드
+                  </h4>
+                  <Badge variant="purple" className="bg-white/20 text-white border-none">가이드</Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-3 pt-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium opacity-80">비트코인 (BTC) {quantRecommendation.btc}%</span>
+                    <span className="font-black">{formatKRW(weeklyAmount * (quantRecommendation.btc / 100))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium opacity-80">이더리움 (ETH) {quantRecommendation.eth}%</span>
+                    <span className="font-black">{formatKRW(weeklyAmount * (quantRecommendation.eth / 100))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium opacity-80">엑스알피 (XRP) {quantRecommendation.xrp}%</span>
+                    <span className="font-black">{formatKRW(weeklyAmount * (quantRecommendation.xrp / 100))}</span>
+                  </div>
+                  <div className="pt-3 border-t border-white/20 flex justify-between items-center font-black text-lg">
+                    <span>총합</span>
+                    <span>{formatKRW(weeklyAmount)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -357,8 +386,23 @@ const App: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} stroke="#f2f4f6" />
-                  <XAxis dataKey="week" hide={true} />
-                  <YAxis hide={true} />
+                  <XAxis 
+                    dataKey="week" 
+                    stroke="#8b95a1" 
+                    fontSize={10} 
+                    tickFormatter={(val) => `${val}주`} 
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={20}
+                  />
+                  <YAxis 
+                    stroke="#8b95a1" 
+                    fontSize={10} 
+                    tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`} 
+                    padding={{ top: 20 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
                     // @ts-ignore - Recharts internal ValueType is complex and formatter is display only
