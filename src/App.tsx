@@ -6,7 +6,10 @@ import {
   Globe, 
   ShieldCheck, 
   Zap, 
-  DollarSign 
+  DollarSign,
+  TrendingUp,
+  Calendar,
+  Info
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -15,7 +18,7 @@ import {
   CartesianGrid, 
   Tooltip, 
   AreaChart, 
-  Area 
+  Area
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -69,7 +72,19 @@ const EXPERT_NOTES = [
     title: "냉정한 자산 배분",
     icon: <Zap className="w-5 h-5 text-[#3182f6]" />,
     content: "BTC(60%)는 시스템 붕괴 시의 생존력, ETH(30%)는 성장성, XRP(10%)는 고위험-고수익 알파를 담당합니다. 다만, 환율이 1,350원 이상일 때는 공격적인 매수보다 보수적인 접근이 필요합니다."
+  },
+  {
+    title: "추가 참고 지표 (Alpha)",
+    icon: <TrendingUp className="w-5 h-5 text-[#3182f6]" />,
+    content: "Fear & Greed Index가 20 이하(공포)일 때는 DCA 금액의 1.2배를 매수하고, 80 이상(탐욕)일 때는 0.8배로 줄이는 'Dynamic DCA'를 고려해 보십시오. 또한 김치프리미엄(Kimchi Prem.)이 5% 이상일 때는 신규 진입을 지양해야 합니다."
   }
+];
+
+const UPDATE_HISTORY = [
+  { date: "2026-03-23 17:15", title: "v1.3 초고환율 분석 및 이력 관리 반영", desc: "이력 관리 탭 추가, 초고환율(1500+) 대응 로직 고도화, 매수 가이드 추가." },
+  { date: "2026-03-23 15:53", title: "v1.2 토스 스타일 디자인 및 한글화", desc: "화이트 테마 UI 개편, 한국어 현지화, 오늘의 자산 현황 기능 추가." },
+  { date: "2026-03-23 15:19", title: "v1.1 버그 픽스 및 배포 최적화", desc: "TS 타입 에러 해결 및 GitHub Actions 배포 자동화 구축." },
+  { date: "2026-03-23 14:00", title: "v1.0 코인 위클리 초기 버전", desc: "BTC/ETH/XRP DCA 전략 수립 및 기초 시뮬레이터 개발." }
 ];
 
 // --- Dynamic Simulation Logic ---
@@ -124,8 +139,9 @@ const App: React.FC = () => {
   const [prices, setPrices] = useState<{ [key: string]: number }>({ BTC: 0, ETH: 0, XRP: 0 });
   const [weeklyAmount, setWeeklyAmount] = useState(1000000);
   const [weeks, setWeeks] = useState(52);
-  const [exchangeRate, setExchangeRate] = useState(1514); // Updated to historic high level
+  const [exchangeRate, setExchangeRate] = useState(1514);
   const [showInsights, setShowInsights] = useState(false);
+  const [activeTab, setActiveTab] = useState<'holdings' | 'history'>('holdings');
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -199,62 +215,90 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-4 border-b border-[#e5e8eb] pt-4">
-          <button className="pb-3 border-b-2 border-[#1a1a1a] font-bold text-sm">보유자산</button>
-          <button className="pb-3 text-sm toss-gray font-medium">분석 & 제언</button>
+          <button 
+            onClick={() => setActiveTab('holdings')}
+            className={cn("pb-3 border-b-2 text-sm transition-all", activeTab === 'holdings' ? "border-[#1a1a1a] font-bold" : "border-transparent toss-gray font-medium")}
+          >보유자산</button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={cn("pb-3 border-b-2 text-sm transition-all", activeTab === 'history' ? "border-[#1a1a1a] font-bold" : "border-transparent toss-gray font-medium")}
+          >업데이트 이력</button>
         </div>
       </motion.header>
 
       <div className="w-full flex flex-col gap-4 pb-20">
-        {/* Today's Returns */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card className="flex flex-col gap-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold">오늘의 자산 현황</h3>
-              <Badge variant={portfolioStats.totalProfit >= 0 ? 'red' : 'blue'}>
-                {portfolioStats.totalProfit >= 0 ? '+' : ''}{portfolioStats.totalRoi.toFixed(2)}%
-              </Badge>
-            </div>
-            
-            <div className="flex flex-col gap-1 px-1 text-center py-2">
-              <span className="text-4xl font-black">{formatKRW(portfolioStats.totalCurrentVal)}</span>
-              <div className={cn("text-lg font-bold flex items-center justify-center gap-1", portfolioStats.totalProfit >= 0 ? "toss-red" : "toss-blue")}>
-                {portfolioStats.totalProfit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                {formatKRW(portfolioStats.totalProfit)}
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-6 border-t border-[#f2f4f6]">
-              {Object.entries(HOLDINGS).map(([symbol, data]) => {
-                const currentPrice = prices[symbol] || 0;
-                const profit = (currentPrice - data.avgPrice) * data.amount;
-                const roi = data.avgPrice > 0 ? ((currentPrice - data.avgPrice) / data.avgPrice) * 100 : 0;
+        {activeTab === 'holdings' ? (
+          <>
+            {/* Today's Returns */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="flex flex-col gap-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold">오늘의 자산 현황</h3>
+                  <Badge variant={portfolioStats.totalProfit >= 0 ? 'red' : 'blue'}>
+                    {portfolioStats.totalProfit >= 0 ? '+' : ''}{portfolioStats.totalRoi.toFixed(2)}%
+                  </Badge>
+                </div>
                 
-                return (
-                  <div key={symbol} className="flex justify-between items-center">
-                    <div className="flex gap-3 items-center">
-                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm", 
-                        symbol === 'BTC' ? "bg-[#fff9eb] text-[#FF9500]" : 
-                        symbol === 'ETH' ? "bg-[#ebf4ff] text-[#3182f6]" : "bg-[#f2f4f6] text-[#1a1a1a]"
-                      )}>
-                        {symbol}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-sm">{symbol === 'BTC' ? '비트코인' : symbol === 'ETH' ? '이더리움' : '엑스알피(리플)'}</span>
-                        <span className="text-xs toss-gray">{data.amount.toFixed(4)} {symbol}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="font-bold text-sm">{formatKRW(data.amount * currentPrice)}</span>
-                      <span className={cn("text-xs font-bold", profit >= 0 ? "toss-red" : "toss-blue")}>
-                        {profit >= 0 ? '+' : ''}{roi.toFixed(1)}%
-                      </span>
-                    </div>
+                <div className="flex flex-col gap-1 px-1 text-center py-2">
+                  <span className="text-4xl font-black">{formatKRW(portfolioStats.totalCurrentVal)}</span>
+                  <div className={cn("text-lg font-bold flex items-center justify-center gap-1", portfolioStats.totalProfit >= 0 ? "toss-red" : "toss-blue")}>
+                    {portfolioStats.totalProfit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                    {formatKRW(portfolioStats.totalProfit)}
                   </div>
-                );
-              })}
-            </div>
-          </Card>
-        </motion.div>
+                </div>
+
+                <div className="space-y-4 pt-6 border-t border-[#f2f4f6]">
+                  {Object.entries(HOLDINGS).map(([symbol, data]) => {
+                    const currentPrice = prices[symbol] || 0;
+                    const profit = (currentPrice - data.avgPrice) * data.amount;
+                    const roi = data.avgPrice > 0 ? ((currentPrice - data.avgPrice) / data.avgPrice) * 100 : 0;
+                    
+                    return (
+                      <div key={symbol} className="flex justify-between items-center">
+                        <div className="flex gap-3 items-center">
+                          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm", 
+                            symbol === 'BTC' ? "bg-[#fff9eb] text-[#FF9500]" : 
+                            symbol === 'ETH' ? "bg-[#ebf4ff] text-[#3182f6]" : "bg-[#f2f4f6] text-[#1a1a1a]"
+                          )}>
+                            {symbol}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-sm">{symbol === 'BTC' ? '비트코인' : symbol === 'ETH' ? '이더리움' : '엑스알피(리플)'}</span>
+                            <span className="text-xs toss-gray">{data.amount.toFixed(4)} {symbol}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="font-bold text-sm">{formatKRW(data.amount * currentPrice)}</span>
+                          <span className={cn("text-xs font-bold", profit >= 0 ? "toss-red" : "toss-blue")}>
+                            {profit >= 0 ? '+' : ''}{roi.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </motion.div>
+          </>
+        ) : (
+          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
+             <Card className="flex flex-col gap-6">
+               <h3 className="text-lg font-bold">업데이트 히스토리</h3>
+               <div className="space-y-8 relative before:absolute before:inset-0 before:left-3 before:border-l-2 before:border-[#f2f4f6] before:h-full">
+                 {UPDATE_HISTORY.map((h, i) => (
+                   <div key={i} className="relative pl-10">
+                     <div className="absolute left-0 w-6 h-6 rounded-full bg-white border-4 border-[#3182f6] z-10" />
+                     <div className="flex flex-col">
+                       <span className="text-xs font-bold toss-blue mb-1">{h.date}</span>
+                       <span className="font-bold text-sm mb-1">{h.title}</span>
+                       <p className="text-xs toss-gray leading-relaxed">{h.desc}</p>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </Card>
+          </motion.div>
+        )}
 
         {/* Quant Settings & Simulator */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -447,6 +491,52 @@ const App: React.FC = () => {
             <p className="text-[10px] text-white/40 font-bold tracking-widest">NY QUANT EXPERT ANALYSIS</p>
           </div>
         </Card>
+        {/* Investment Guide Section */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <Card className="bg-[#f9fafb] shadow-none border-none mb-4">
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="text-base font-bold flex items-center gap-2">
+                <Info className="w-5 h-5 toss-blue" />
+                투자 가이드 & 추천 매수 시간
+              </h4>
+              <Badge variant="blue">추천 시간대</Badge>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-[#e5e8eb] flex justify-between items-center">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs toss-gray font-bold">이번 주 권장 매수일</span>
+                  <span className="text-sm font-black">매주 월요일 / 수요일 오전 9~10시</span>
+                </div>
+                <Calendar className="w-5 h-5 toss-blue" />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">1</div>
+                  <p className="text-sm toss-gray leading-relaxed font-medium">
+                    <span className="text-[#1a1a1a] font-bold">환율 민감도 대응</span><br/>
+                    환율 1,500원 초과 시 BTC 비중을 늘려 글로벌 구매력을 보존하세요.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">2</div>
+                  <p className="text-sm toss-gray leading-relaxed font-medium">
+                    <span className="text-[#1a1a1a] font-bold">추가 지표 활용 (FEAR index)</span><br/>
+                    공포 지수 20 이하 시에는 공격적 매수, 80 이상 시에는 매수를 지양하는 것이 퀀트 전략의 핵심입니다.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">3</div>
+                  <p className="text-sm toss-gray leading-relaxed font-medium">
+                    <span className="text-[#1a1a1a] font-bold">김치 프리미엄 확인</span><br/>
+                    국내외 코인 시세 차이가 5% 이상 벌어질 때는 매수를 한 주 쉬거나 비중을 절반으로 줄이세요.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Insights Overlay */}
