@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  BarChart3, 
   RefreshCcw, 
-  Info,
-  ChevronRight,
-  ArrowUpRight,
-  ArrowDownRight
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Globe, 
+  ShieldCheck, 
+  Zap, 
+  DollarSign 
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -13,10 +14,10 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  AreaChart,
-  Area
+  AreaChart, 
+  Area 
 } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -33,43 +34,75 @@ const Card = ({ children, className }: { children: React.ReactNode, className?: 
   </div>
 );
 
-const Badge = ({ children, className, variant = 'blue' }: { children: React.ReactNode, className?: string, variant?: 'blue' | 'red' | 'gray' }) => (
+const Badge = ({ children, className, variant = 'blue' }: { children: React.ReactNode, className?: string, variant?: 'blue' | 'red' | 'gray' | 'purple' }) => (
   <span className={cn(
     "px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tighter",
     variant === 'blue' && "bg-[#ebf4ff] text-[#3182f6]",
     variant === 'red' && "bg-[#fff0f0] text-[#f04452]",
     variant === 'gray' && "bg-[#f2f4f6] text-[#8b95a1]",
+    variant === 'purple' && "bg-[#f3f0ff] text-[#845ef7]",
     className
   )}>
     {children}
   </span>
 );
 
-// --- Fixed Holding Data from Screenshot ---
+// --- Data ---
 const HOLDINGS = {
   BTC: { amount: 0.00583222, avgPrice: 102162589 },
   ETH: { amount: 0.1, avgPrice: 3094000 },
   XRP: { amount: 50, avgPrice: 2084 }
 };
 
-// --- Simulation Hook ---
-const useSimulation = (weeklyAmount: number, weeks: number) => {
+const EXPERT_NOTES = [
+  {
+    title: "뉴욕 퀀트 전문가의 제언",
+    icon: <Globe className="w-5 h-5 text-[#3182f6]" />,
+    content: "현재 원화 가치 하락과 고환율은 한국 투자자에게 리스크이자 기회입니다. 코인은 실질적인 달러 자산이므로 환율 급등 시 원화 자산의 가치 하락을 방어하는 '환헤지(FX Hedge)' 수단으로 작동합니다."
+  },
+  {
+    title: "변동성 활용과 DCA",
+    icon: <ShieldCheck className="w-5 h-5 text-[#3182f6]" />,
+    content: "퀀트 관점에서 변동성은 적립식 매수의 가장 좋은 친구입니다. 기계적인 DCA(분할 매수)는 '평균 취득가액 하락 효과'를 극대화하며, 인간의 감정적 에러(Behavioral Bias)를 원천 차단합니다."
+  },
+  {
+    title: "냉정한 자산 배분",
+    icon: <Zap className="w-5 h-5 text-[#3182f6]" />,
+    content: "BTC(60%)는 시스템 붕괴 시의 생존력, ETH(30%)는 성장성, XRP(10%)는 고위험-고수익 알파를 담당합니다. 다만, 환율이 1,350원 이상일 때는 공격적인 매수보다 보수적인 접근이 필요합니다."
+  }
+];
+
+// --- Dynamic Simulation Logic ---
+
+const useSimulation = (weeklyAmount: number, weeks: number, exchangeRate: number) => {
   return useMemo(() => {
-    const totalInvested = weeklyAmount * weeks;
-    const scenarios = [
+    // Basic scenarios from MD
+    const baseScenarios = [
       { name: '보수적', multiplier: 1.325, color: '#8b95a1' },
       { name: '중립적', multiplier: 1.8, color: '#3182f6' },
       { name: '불장', multiplier: 2.4, color: '#f04452' }
     ];
+
+    // Adjust multiplier based on exchange rate (Quant Alpha)
+    // If rate > 1400, entry is expensive in KRW, so final KRW ROI is slightly penalized
+    // If rate < 1300, entry is cheap, potential for additional KRW ROI from exchange rate recovery
+    const rateFactor = exchangeRate > 1400 ? 0.95 : exchangeRate < 1300 ? 1.05 : 1.0;
+
+    const scenarios = baseScenarios.map(s => ({
+      ...s,
+      adjustedMultiplier: s.multiplier * rateFactor
+    }));
+
+    const totalInvested = weeklyAmount * weeks;
 
     const data = Array.from({ length: weeks + 1 }, (_, i) => {
       const investedAtWeek = weeklyAmount * i;
       return {
         week: i,
         invested: investedAtWeek,
-        conservative: Math.round(investedAtWeek * (1 + (scenarios[0].multiplier - 1) * (i / weeks))),
-        neutral: Math.round(investedAtWeek * (1 + (scenarios[1].multiplier - 1) * (i / weeks))),
-        bull: Math.round(investedAtWeek * (1 + (scenarios[2].multiplier - 1) * (i / weeks))),
+        conservative: Math.round(investedAtWeek * (1 + (scenarios[0].adjustedMultiplier - 1) * (i / weeks))),
+        neutral: Math.round(investedAtWeek * (1 + (scenarios[1].adjustedMultiplier - 1) * (i / weeks))),
+        bull: Math.round(investedAtWeek * (1 + (scenarios[2].adjustedMultiplier - 1) * (i / weeks))),
       };
     });
 
@@ -78,23 +111,21 @@ const useSimulation = (weeklyAmount: number, weeks: number) => {
       data,
       scenarios: scenarios.map(s => ({
         ...s,
-        finalValue: Math.round(totalInvested * s.multiplier),
-        roi: Math.round((s.multiplier - 1) * 100)
+        finalValue: Math.round(totalInvested * s.adjustedMultiplier),
+        roi: Math.round((s.adjustedMultiplier - 1) * 100)
       }))
     };
-  }, [weeklyAmount, weeks]);
+  }, [weeklyAmount, weeks, exchangeRate]);
 };
 
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [prices, setPrices] = useState<{ [key: string]: number }>({
-    BTC: 0,
-    ETH: 0,
-    XRP: 0
-  });
+  const [prices, setPrices] = useState<{ [key: string]: number }>({ BTC: 0, ETH: 0, XRP: 0 });
   const [weeklyAmount, setWeeklyAmount] = useState(1000000);
-  const [weeks, setWeeks] = useState(52); 
+  const [weeks, setWeeks] = useState(52);
+  const [exchangeRate, setExchangeRate] = useState(1380); // Default to current high levels
+  const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -116,20 +147,17 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { totalInvested, data, scenarios } = useSimulation(weeklyAmount, weeks);
+  const { totalInvested, data, scenarios } = useSimulation(weeklyAmount, weeks, exchangeRate);
 
   const portfolioStats = useMemo(() => {
     const totalBuyPrice = (HOLDINGS.BTC.amount * HOLDINGS.BTC.avgPrice) + 
                           (HOLDINGS.ETH.amount * HOLDINGS.ETH.avgPrice) + 
                           (HOLDINGS.XRP.amount * HOLDINGS.XRP.avgPrice);
-    
     const totalCurrentVal = (HOLDINGS.BTC.amount * (prices.BTC || 0)) + 
                             (HOLDINGS.ETH.amount * (prices.ETH || 0)) + 
                             (HOLDINGS.XRP.amount * (prices.XRP || 0));
-    
     const totalProfit = totalCurrentVal - totalBuyPrice;
     const totalRoi = (totalProfit / totalBuyPrice) * 100;
-
     return { totalBuyPrice, totalCurrentVal, totalProfit, totalRoi };
   }, [prices]);
 
@@ -137,7 +165,12 @@ const App: React.FC = () => {
     return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val);
   };
 
-
+  // Quant Allocation Recommendation Logic
+  const quantRecommendation = useMemo(() => {
+    if (exchangeRate > 1400) return { btc: 75, eth: 20, xrp: 5, label: "방어적 (달러 강세 대응)", color: "purple" };
+    if (exchangeRate < 1300) return { btc: 50, eth: 35, xrp: 15, label: "공격적 (원화 강세 대응)", color: "red" };
+    return { btc: 60, eth: 30, xrp: 10, label: "중립적 (표준 전략)", color: "blue" };
+  }, [exchangeRate]);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center py-12 px-4 md:px-0 max-w-[640px] mx-auto text-[#1a1a1a]">
@@ -149,22 +182,29 @@ const App: React.FC = () => {
       >
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-black tracking-tight text-[#1a1a1a]">투자 내역</h1>
-          <button 
-            onClick={() => window.location.reload()}
-            className="p-2.5 rounded-full bg-white shadow-sm transition-all active:scale-95"
-          >
-            <RefreshCcw className="w-5 h-5 toss-gray" />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowInsights(true)}
+              className="p-2.5 rounded-full bg-white shadow-sm transition-all active:scale-95"
+            >
+              <Globe className="w-5 h-5 toss-blue" />
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="p-2.5 rounded-full bg-white shadow-sm transition-all active:scale-95"
+            >
+              <RefreshCcw className="w-5 h-5 toss-gray" />
+            </button>
+          </div>
         </div>
         <div className="flex gap-4 border-b border-[#e5e8eb] pt-4">
           <button className="pb-3 border-b-2 border-[#1a1a1a] font-bold text-sm">보유자산</button>
-          <button className="pb-3 text-sm toss-gray font-medium">투자손익</button>
-          <button className="pb-3 text-sm toss-gray font-medium">거래내역</button>
+          <button className="pb-3 text-sm toss-gray font-medium">분석 & 제언</button>
         </div>
       </motion.header>
 
       <div className="w-full flex flex-col gap-4 pb-20">
-        {/* Today's Returns (Screenshot Mockup Visualization) */}
+        {/* Today's Returns */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="flex flex-col gap-6">
             <div className="flex justify-between items-center">
@@ -174,9 +214,9 @@ const App: React.FC = () => {
               </Badge>
             </div>
             
-            <div className="flex flex-col gap-1 px-1">
-              <span className="text-3xl font-black">{formatKRW(portfolioStats.totalCurrentVal)}</span>
-              <div className={cn("text-base font-bold flex items-center gap-1", portfolioStats.totalProfit >= 0 ? "toss-red" : "toss-blue")}>
+            <div className="flex flex-col gap-1 px-1 text-center py-2">
+              <span className="text-4xl font-black">{formatKRW(portfolioStats.totalCurrentVal)}</span>
+              <div className={cn("text-lg font-bold flex items-center justify-center gap-1", portfolioStats.totalProfit >= 0 ? "toss-red" : "toss-blue")}>
                 {portfolioStats.totalProfit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                 {formatKRW(portfolioStats.totalProfit)}
               </div>
@@ -186,7 +226,7 @@ const App: React.FC = () => {
               {Object.entries(HOLDINGS).map(([symbol, data]) => {
                 const currentPrice = prices[symbol] || 0;
                 const profit = (currentPrice - data.avgPrice) * data.amount;
-                const roi = ((currentPrice - data.avgPrice) / data.avgPrice) * 100;
+                const roi = data.avgPrice > 0 ? ((currentPrice - data.avgPrice) / data.avgPrice) * 100 : 0;
                 
                 return (
                   <div key={symbol} className="flex justify-between items-center">
@@ -199,7 +239,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex flex-col">
                         <span className="font-bold text-sm">{symbol === 'BTC' ? '비트코인' : symbol === 'ETH' ? '이더리움' : '엑스알피(리플)'}</span>
-                        <span className="text-xs toss-gray">{data.amount} {symbol}</span>
+                        <span className="text-xs toss-gray">{data.amount.toFixed(4)} {symbol}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
@@ -215,60 +255,95 @@ const App: React.FC = () => {
           </Card>
         </motion.div>
 
-        {/* Dynamic Simulator Section */}
+        {/* Quant Settings & Simulator */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card className="flex flex-col gap-8">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 toss-blue" />
-                DCA 시뮬레이터
-              </h3>
-            </div>
-            
-            <div className="space-y-8">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-sm toss-gray font-bold">매주 투자할 금액</label>
-                    <span className="font-black text-lg toss-blue">{formatKRW(weeklyAmount)}</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="100000" 
-                    max="5000000" 
-                    step="100000"
-                    value={weeklyAmount}
-                    onChange={(e) => setWeeklyAmount(Number(e.target.value))}
-                  />
-                </div>
+          <Card className="flex flex-col gap-8 bg-[#f9fafb] border-none shadow-none">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 toss-blue" />
+                  환율 & 투자 설정
+                </h3>
+                <Badge variant={quantRecommendation.color as 'blue' | 'red' | 'purple'}>{quantRecommendation.label}</Badge>
+              </div>
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-sm toss-gray font-bold">DCA 투자 기간</label>
-                    <span className="font-black text-lg toss-blue">{weeks}주</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="12" 
-                    max="104" 
-                    step="4"
-                    value={weeks}
-                    onChange={(e) => setWeeks(Number(e.target.value))}
-                  />
+              {/* Exchange Rate Input */}
+              <div className="space-y-4 bg-white p-5 rounded-2xl shadow-sm">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs toss-gray font-bold">현재 원/달러 환율</label>
+                  <span className="font-black text-lg text-[#1a1a1a]">₩{exchangeRate.toLocaleString()}</span>
                 </div>
-            </div>
+                <input 
+                  type="range" 
+                  min="1200" 
+                  max="1500" 
+                  step="10"
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(Number(e.target.value))}
+                />
+                <div className="flex justify-between text-[10px] toss-gray font-bold pt-1">
+                  <span>저환율 (공격)</span>
+                  <span>고환율 (방어)</span>
+                </div>
+              </div>
 
-            <div className="pt-6 border-t border-[#f2f4f6] flex justify-between items-center">
-                <span className="text-sm font-bold toss-gray">총 투자금액</span>
-                <span className="text-xl font-black">{formatKRW(totalInvested)}</span>
+              {/* Strategy Distribution View */}
+              <div className="flex flex-col gap-3">
+                <label className="text-xs toss-gray font-bold px-1 text-center">퀀트 추천 비중</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-white p-3 rounded-xl shadow-sm text-center">
+                    <div className="text-[10px] toss-gray font-bold">BTC</div>
+                    <div className="text-lg font-black toss-blue">{quantRecommendation.btc}%</div>
+                  </div>
+                  <div className="flex-1 bg-white p-3 rounded-xl shadow-sm text-center">
+                    <div className="text-[10px] toss-gray font-bold">ETH</div>
+                    <div className="text-lg font-black toss-blue">{quantRecommendation.eth}%</div>
+                  </div>
+                  <div className="flex-1 bg-white p-3 rounded-xl shadow-sm text-center">
+                    <div className="text-[10px] toss-gray font-bold">XRP</div>
+                    <div className="text-lg font-black toss-blue">{quantRecommendation.xrp}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 bg-white p-5 rounded-2xl shadow-sm">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs toss-gray font-bold">매주 투자 금액</label>
+                  <span className="font-black text-lg text-[#3182f6]">{formatKRW(weeklyAmount)}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="100000" 
+                  max="3000000" 
+                  step="100000"
+                  value={weeklyAmount}
+                  onChange={(e) => setWeeklyAmount(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="space-y-4 bg-white p-5 rounded-2xl shadow-sm">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs toss-gray font-bold">투자 기간</label>
+                  <span className="font-black text-lg text-[#3182f6]">{weeks}주</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="12" 
+                  max="104" 
+                  step="4"
+                  value={weeks}
+                  onChange={(e) => setWeeks(Number(e.target.value))}
+                />
+              </div>
             </div>
           </Card>
         </motion.div>
 
-        {/* Charts & Scenario Results */}
+        {/* Performance Chart */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="h-[400px]">
-            <h3 className="text-lg font-bold mb-8">기대 수익 시뮬레이션</h3>
-            <div className="h-64">
+          <Card className="h-[380px]">
+            <h3 className="text-lg font-bold mb-6">시뮬레이션 결과</h3>
+            <div className="h-60 mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data}>
                   <defs>
@@ -283,10 +358,11 @@ const App: React.FC = () => {
                   </defs>
                   <CartesianGrid vertical={false} stroke="#f2f4f6" />
                   <XAxis dataKey="week" hide={true} />
-                  <YAxis hide={true} domain={['auto', 'auto']} />
+                  <YAxis hide={true} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    formatter={(val: any) => formatKRW(Number(val))}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
+                    // @ts-ignore - Recharts internal ValueType is complex and formatter is display only
+                    formatter={(val: any) => formatKRW(Number(val || 0))}
                     labelFormatter={(val) => `${val}주차`}
                   />
                   <Area type="monotone" dataKey="invested" stroke="#e5e8eb" fillOpacity={1} fill="url(#colorInvested)" name="원금" strokeWidth={2} />
@@ -294,75 +370,94 @@ const App: React.FC = () => {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex gap-2 items-center justify-center mt-4 cursor-default">
-              <div className="flex items-center gap-1.5 text-xs toss-gray"><div className="w-2.5 h-2.5 rounded-sm bg-[#e5e8eb]"/> 원금</div>
-              <div className="flex items-center gap-1.5 text-xs toss-gray ml-4"><div className="w-2.5 h-2.5 rounded-sm bg-[#3182f6]"/> 중립적 수익</div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Scenario List */}
-        <div className="flex flex-col gap-3">
-          {scenarios.map((s, idx) => (
-            <motion.div
-              key={s.name}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 + idx * 0.1 }}
-            >
-              <div className="toss-card p-5 bg-white flex justify-between items-center group cursor-pointer active:scale-95 transition-all">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold toss-gray">{s.name}</span>
-                    <Badge variant={s.name === '불장' ? 'red' : s.name === '중립적' ? 'blue' : 'gray'}>+{s.roi}%</Badge>
-                  </div>
-                  <span className="text-xl font-black">{formatKRW(s.finalValue)}</span>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#f2f4f6] flex items-center justify-center group-hover:bg-[#ebf4ff] group-hover:text-[#3182f6] transition-colors">
-                  <ChevronRight className="w-6 h-6" />
-                </div>
+            <div className="flex justify-between items-center mt-6">
+              <div className="flex flex-col">
+                <span className="text-[10px] toss-gray font-bold">누적 투자 원금</span>
+                <span className="text-xl font-black">{formatKRW(totalInvested)}</span>
               </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Strategy Rules Section */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-          <Card className="bg-[#f9fafb] shadow-none border-none">
-            <h4 className="text-base font-bold mb-4 flex items-center gap-2">
-              <Info className="w-5 h-5 toss-blue" />
-              투자 전략 가이드
-            </h4>
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">1</div>
-                <p className="text-sm toss-gray leading-relaxed font-medium">
-                  <span className="text-[#1a1a1a] font-bold">월요일 오전 고정 매수</span><br/>
-                  매주 월요일 혹은 수요일 오전에 기계적으로 매수하세요.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">2</div>
-                <p className="text-sm toss-gray leading-relaxed font-medium">
-                  <span className="text-[#1a1a1a] font-bold">하락 시 추가 매수 (고급)</span><br/>
-                  -3% 하락 시 1.5배, -5% 하락 시 2배를 매수하여 평단가를 낮추세요.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold shadow-sm">3</div>
-                <p className="text-sm toss-gray leading-relaxed font-medium">
-                  <span className="text-[#1a1a1a] font-bold">비트는 대장, 이더는 부대장</span><br/>
-                  BTC 60%, ETH 30%, XRP 10% 비중을 엄격히 준수하세요.
-                </p>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] toss-gray font-bold">최종 예상 자산</span>
+                <span className="text-xl font-black">{formatKRW(scenarios[1].finalValue)}</span>
               </div>
             </div>
           </Card>
         </motion.div>
 
-        <div className="text-center py-10">
-          <p className="text-xs toss-gray">DCA 전략은 시장의 타이밍이 아닌, 시장에 머무는 시간을 사는 것입니다.</p>
-        </div>
+        {/* Quant Insights Card */}
+        <Card className="bg-[#1a1a1a] text-white border-none space-y-6">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-[#3182f6]" />
+            <span className="font-bold">뉴욕 퀀트 전문가 Insight</span>
+          </div>
+          <div className="space-y-4">
+            {EXPERT_NOTES.map((note, i) => (
+              <div key={i} className="space-y-2">
+                <h5 className="text-sm font-bold text-[#3182f6]">{note.title}</h5>
+                <p className="text-xs leading-relaxed text-[#8b95a1] font-medium">
+                  {note.content}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="pt-4 border-t border-white/10 text-center">
+            <p className="text-[10px] text-white/40 font-bold tracking-widest">NY QUANT EXPERT ANALYSIS</p>
+          </div>
+        </Card>
       </div>
+
+      {/* Insights Overlay */}
+      <AnimatePresence>
+        {showInsights && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center"
+            onClick={() => setShowInsights(false)}
+          >
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="w-full max-w-[640px] bg-white rounded-t-[32px] p-8 pb-12 overflow-y-auto max-h-[80vh]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-1.5 bg-[#e5e8eb] rounded-full mx-auto mb-8" />
+              <h2 className="text-2xl font-black mb-6">퀀트 전문가의 3대 투자 원칙</h2>
+              
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <Badge variant="blue">원칙 1. 환율에 따른 동적 비중 조절</Badge>
+                  <p className="text-sm toss-gray leading-relaxed">
+                    환율이 <span className="text-[#1a1a1a] font-bold">1,400원 이상</span>일 때는 매수 비용이 비싸지므로, 변동성이 큰 알트코인 비중을 줄이고 안전 자산 성격의 <span className="text-[#1a1a1a] font-bold">BTC 비중을 75%까지</span> 높이세요. 환율이 1,300원 이하로 내려가면 이더리움과 알트코인 비중을 늘려 수익률(Alpha)을 극대화합니다.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Badge variant="blue">원칙 2. 헷지 수단으로서의 암호화폐</Badge>
+                  <p className="text-sm toss-gray leading-relaxed">
+                    원화 가치가 하락하는 국면에서 비트코인 보유는 필수적인 생존 전략입니다. 하지만 고환율 정점에서 한꺼번에 매수하는 것은 위험합니다. <span className="text-[#1a1a1a] font-bold">매주 DCA(분할 매수)</span>를 통해 진입 시점을 분산함으로써 환리스크를 상쇄하십시오.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Badge variant="blue">원칙 3. 블랙스완 대응 체력</Badge>
+                  <p className="text-sm toss-gray leading-relaxed">
+                    전쟁 및 에너지 이슈가 심화될 때 시장은 급락할 수 있습니다. 퀀트 포트폴리오의 10% 이상은 항상 <span className="text-[#1a1a1a] font-bold">현금성 자산(Dry Powder)</span>으로 유지하여, 기계적인 매수 외에 예외적으로 발생하는 저점 찬스를 잡을 준비를 하십시오.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowInsights(false)}
+                className="w-full mt-10 py-4 bg-[#3182f6] text-white font-bold rounded-2xl transition-all active:scale-95"
+              >
+                닫기
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
