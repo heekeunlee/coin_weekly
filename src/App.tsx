@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, 
-  TrendingDown, 
   Wallet, 
   BarChart3, 
   RefreshCcw, 
   Calendar,
   AlertCircle,
-  ArrowRight,
-  ChevronDown,
   Info
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
-  LineChart, 
-  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -26,7 +21,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -93,7 +88,7 @@ const App: React.FC = () => {
     ETH: 0,
     XRP: 0
   });
-  const [loading, setLoading] = useState(true);
+
   const [weeklyAmount, setWeeklyAmount] = useState(1000000);
   const [weeks, setWeeks] = useState(52); // Default to 1 year
   
@@ -117,7 +112,7 @@ const App: React.FC = () => {
           ETH: response.data.ethereum.krw,
           XRP: response.data.ripple.krw
         });
-        setLoading(false);
+
       } catch (error) {
         console.error("Error fetching prices:", error);
         // Fallback or handle error
@@ -307,7 +302,7 @@ const App: React.FC = () => {
                     <YAxis stroke="#64748b" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`} />
                     <Tooltip 
                       contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                      formatter={(val: number) => formatKRW(val)}
+                      formatter={(val: any) => formatKRW(Number(val))}
                     />
                     <Legend />
                     <Area type="monotone" dataKey="invested" stroke="#475569" fillOpacity={1} fill="url(#colorInvested)" name="Cumulative Capital" strokeWidth={2} />
