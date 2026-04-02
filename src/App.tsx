@@ -52,10 +52,32 @@ const Badge = ({ children, className, variant = 'blue' }: { children: React.Reac
 
 // --- Data ---
 const HOLDINGS = {
-  BTC: { amount: 0.00583222, avgPrice: 102162589 },
-  ETH: { amount: 0.1, avgPrice: 3094000 },
+  BTC: { amount: 0.01372106, avgPrice: 101729313 },
+  ETH: { amount: 0.16402049, avgPrice: 3105710 },
   XRP: { amount: 50, avgPrice: 2084 }
 };
+
+const INVESTMENT_HISTORY = [
+  { 
+    date: "2026-04-02", 
+    total: 1000000, 
+    details: [
+      { symbol: "BTC", amountKRW: 800000, qty: 0.00788884, price: 101409000 },
+      { symbol: "ETH", amountKRW: 200000, qty: 0.06402049, price: 3124000 }
+    ],
+    note: "환율 1514원 대응, BTC 80% 집중 매수 전략 집행"
+  },
+  { 
+    date: "2026-03-23", 
+    total: 1000000, 
+    details: [
+      { symbol: "BTC", amountKRW: 600000, qty: 0.00583222, price: 102876000 },
+      { symbol: "ETH", amountKRW: 300000, qty: 0.1, price: 3094000 },
+      { symbol: "XRP", amountKRW: 100000, qty: 50, price: 2000 }
+    ],
+    note: "초기 포트폴리오 구성 (BTC 60: ETH 30: XRP 10)"
+  }
+];
 
 const EXPERT_NOTES = [
   {
@@ -81,6 +103,7 @@ const EXPERT_NOTES = [
 ];
 
 const UPDATE_HISTORY = [
+  { date: "2026-04-02 14:35", title: "v1.5 주간 매수 집행 및 이력 관리 추가", desc: "금일 BTC 80%, ETH 20% 매수분 반영 및 주간 투자 내역 탭 신설." },
   { date: "2026-03-23 20:30", title: "v1.4 최신 수익 현황 데이터 검증 완료", desc: "사용자 제공 최신 스크린샷(20:25) 기반 보유 자산 데이터 무결성 검증 및 반영." },
   { date: "2026-03-23 17:15", title: "v1.3 초고환율 분석 및 이력 관리 반영", desc: "이력 관리 탭 추가, 초고환율(1500+) 대응 로직 고도화, 매수 가이드 추가." },
   { date: "2026-03-23 15:53", title: "v1.2 토스 스타일 디자인 및 한글화", desc: "화이트 테마 UI 개편, 한국어 현지화, 오늘의 자산 현황 기능 추가." },
@@ -142,7 +165,7 @@ const App: React.FC = () => {
   const [weeks, setWeeks] = useState(52);
   const [exchangeRate, setExchangeRate] = useState(1514);
   const [showInsights, setShowInsights] = useState(false);
-  const [activeTab, setActiveTab] = useState<'holdings' | 'history'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'history' | 'invest_log'>('holdings');
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -221,9 +244,13 @@ const App: React.FC = () => {
             className={cn("pb-3 border-b-2 text-sm transition-all", activeTab === 'holdings' ? "border-[#1a1a1a] font-bold" : "border-transparent toss-gray font-medium")}
           >보유자산</button>
           <button 
+            onClick={() => setActiveTab('invest_log')}
+            className={cn("pb-3 border-b-2 text-sm transition-all", activeTab === 'invest_log' ? "border-[#1a1a1a] font-bold" : "border-transparent toss-gray font-medium")}
+          >매수 이력</button>
+          <button 
             onClick={() => setActiveTab('history')}
             className={cn("pb-3 border-b-2 text-sm transition-all", activeTab === 'history' ? "border-[#1a1a1a] font-bold" : "border-transparent toss-gray font-medium")}
-          >업데이트 이력</button>
+          >데이터 업데이트</button>
         </div>
       </motion.header>
 
@@ -281,10 +308,42 @@ const App: React.FC = () => {
               </Card>
             </motion.div>
           </>
+        ) : activeTab === 'invest_log' ? (
+          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
+            <Card className="flex flex-col gap-6">
+              <h3 className="text-lg font-bold">주간 매수 로그</h3>
+              <div className="space-y-6">
+                {INVESTMENT_HISTORY.map((log, i) => (
+                  <div key={i} className="p-5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-black">{log.date}</span>
+                      <Badge variant="purple">{formatKRW(log.total)} 투자</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {log.details.map((d, j) => (
+                        <div key={j} className="flex justify-between items-center text-xs">
+                          <span className="toss-gray font-bold">{d.symbol}</span>
+                          <div className="flex gap-2">
+                            <span className="font-medium text-[#1a1a1a]">{d.qty.toFixed(6)} {d.symbol}</span>
+                            <span className="toss-blue font-bold">@{formatKRW(d.price)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {log.note && (
+                      <p className="text-[11px] toss-gray italic pt-2 border-t border-[#f2f4f6]">
+                        &ldquo;{log.note}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </motion.div>
         ) : (
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
              <Card className="flex flex-col gap-6">
-               <h3 className="text-lg font-bold">업데이트 히스토리</h3>
+               <h3 className="text-lg font-bold">데이터 업데이트 히스토리</h3>
                <div className="space-y-8 relative before:absolute before:inset-0 before:left-3 before:border-l-2 before:border-[#f2f4f6] before:h-full">
                  {UPDATE_HISTORY.map((h, i) => (
                    <div key={i} className="relative pl-10">
