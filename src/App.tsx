@@ -52,20 +52,20 @@ const Badge = ({ children, className, variant = 'blue' }: { children: React.Reac
 
 // --- Data ---
 const HOLDINGS = {
-  BTC: { amount: 0.01372106, avgPrice: 101729313 },
-  ETH: { amount: 0.16402049, avgPrice: 3105710 },
+  BTC: { amount: 0.01372721, avgPrice: 101712300 },
+  ETH: { amount: 0.16093649, avgPrice: 3104815 },
   XRP: { amount: 50, avgPrice: 2084 }
 };
 
 const INVESTMENT_HISTORY = [
   { 
     date: "2026-04-02", 
-    total: 1000000, 
+    total: 990670, 
     details: [
-      { symbol: "BTC", amountKRW: 800000, qty: 0.00788884, price: 101409000 },
-      { symbol: "ETH", amountKRW: 200000, qty: 0.06402049, price: 3124000 }
+      { symbol: "BTC", amountKRW: 800392, qty: 0.00789499, price: 101329000 },
+      { symbol: "ETH", amountKRW: 190278, qty: 0.06093649, price: 3121000 }
     ],
-    note: "환율 1514원 대응, BTC 80% 집중 매수 전략 집행"
+    note: "실거래 스크린샷 반영: BTC 약 80만원, ETH 약 19만원 매수 (수수료 포함)"
   },
   { 
     date: "2026-03-23", 
